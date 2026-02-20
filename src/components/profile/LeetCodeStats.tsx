@@ -1,12 +1,42 @@
 'use client';
 
-import { Code2, Trophy, Zap, TrendingUp, Target, Flame, Award, ExternalLink } from 'lucide-react';
+import { Code2, Trophy, Zap, TrendingUp, Target, Flame, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useState, useEffect, useCallback } from 'react';
+import { leetcodeApi, LeetCodeFullStats } from '@/api/leetcode';
 
 interface LeetCodeStatsProps {
     username?: string;
 }
 
 export function LeetCodeStats({ username }: LeetCodeStatsProps) {
+    const [stats, setStats] = useState<LeetCodeFullStats | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+    const fetchStats = useCallback(async () => {
+        if (!username) return;
+        
+        setIsLoading(true);
+        setError(null);
+        
+        try {
+            const data = await leetcodeApi.getStats(username);
+            setStats(data);
+            setLastUpdated(new Date());
+        } catch (err) {
+            setError('Failed to load LeetCode stats');
+            console.error('LeetCode API error:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [username]);
+
+    useEffect(() => {
+        fetchStats();
+    }, [fetchStats]);
+
     if (!username) {
         return (
             <div className="group relative rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white via-white to-amber-50/30 p-6 shadow-lg shadow-slate-200/50 hover:shadow-xl hover:shadow-amber-100/50 transition-all duration-500 overflow-hidden">
@@ -42,25 +72,66 @@ export function LeetCodeStats({ username }: LeetCodeStatsProps) {
         );
     }
 
-    // Mock LeetCode stats
-    const stats = {
-        solved: 452,
-        total: 3000,
-        easy: 120,
-        easyTotal: 800,
-        medium: 250,
-        mediumTotal: 1650,
-        hard: 82,
-        hardTotal: 550,
-        ranking: 'Top 5%',
-        contestRating: 1850,
-        streak: 42,
-        acceptanceRate: 68.5
-    };
+    // Loading state
+    if (isLoading && !stats) {
+        return (
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white via-white to-amber-50/30 p-6 shadow-lg"
+            >
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2.5 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl">
+                        <Code2 className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-lg font-bold text-slate-800">LeetCode Stats</span>
+                </div>
+                <div className="flex flex-col items-center justify-center h-48">
+                    <RefreshCw className="h-8 w-8 text-amber-400 animate-spin mb-3" />
+                    <p className="text-sm text-slate-500">Loading LeetCode stats...</p>
+                </div>
+            </motion.div>
+        );
+    }
 
-    const easyPercentage = (stats.easy / stats.easyTotal) * 100;
-    const mediumPercentage = (stats.medium / stats.mediumTotal) * 100;
-    const hardPercentage = (stats.hard / stats.hardTotal) * 100;
+    // Error state
+    if (error && !stats) {
+        return (
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative rounded-2xl border border-rose-200/60 bg-gradient-to-br from-white via-white to-rose-50/30 p-6 shadow-lg"
+            >
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2.5 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl">
+                        <Code2 className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-lg font-bold text-slate-800">LeetCode Stats</span>
+                </div>
+                <div className="flex flex-col items-center justify-center h-48">
+                    <AlertCircle className="h-8 w-8 text-rose-400 mb-3" />
+                    <p className="text-sm text-rose-600 mb-3">{error}</p>
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={fetchStats}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium text-slate-700 transition-colors"
+                    >
+                        Try Again
+                    </motion.button>
+                </div>
+            </motion.div>
+        );
+    }
+
+    const profile = stats?.profile;
+    const contest = stats?.contest;
+
+    const easyPercentage = profile ? (profile.easySolved / profile.totalEasy) * 100 : 0;
+    const mediumPercentage = profile ? (profile.mediumSolved / profile.totalMedium) * 100 : 0;
+    const hardPercentage = profile ? (profile.hardSolved / profile.totalHard) * 100 : 0;
+
+    const rankingDisplay = profile ? leetcodeApi.formatRanking(profile.ranking) : 'N/A';
 
     return (
         <div className="group relative rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white via-white to-amber-50/30 p-6 shadow-lg shadow-slate-200/50 hover:shadow-xl hover:shadow-amber-100/50 transition-all duration-500 overflow-hidden">
@@ -80,16 +151,32 @@ export function LeetCodeStats({ username }: LeetCodeStatsProps) {
                             </div>
                         </div>
                         LeetCode Stats
+                        {/* Live indicator */}
+                        <span className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-100 rounded-full">
+                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                            <span className="text-[10px] font-bold text-emerald-700">LIVE</span>
+                        </span>
                     </h3>
-                    <a 
-                        href={`https://leetcode.com/${username}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-medium text-slate-400 hover:text-amber-600 flex items-center gap-1.5 transition-colors"
-                    >
-                        @{username}
-                        <ExternalLink className="h-3 w-3" />
-                    </a>
+                    <div className="flex items-center gap-2">
+                        <motion.button
+                            whileHover={{ rotate: 180 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={fetchStats}
+                            disabled={isLoading}
+                            className="p-1.5 hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                            <RefreshCw className={`h-4 w-4 text-amber-500 ${isLoading ? 'animate-spin' : ''}`} />
+                        </motion.button>
+                        <a 
+                            href={`https://leetcode.com/${username}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium text-slate-400 hover:text-amber-600 flex items-center gap-1.5 transition-colors"
+                        >
+                            @{username}
+                            <ExternalLink className="h-3 w-3" />
+                        </a>
+                    </div>
                 </div>
 
                 {/* Main Stats Section */}
@@ -106,15 +193,15 @@ export function LeetCodeStats({ username }: LeetCodeStatsProps) {
                                 </div>
                                 <div className="flex items-baseline gap-2">
                                     <p className="text-4xl font-black bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 bg-clip-text text-transparent">
-                                        {stats.solved}
+                                        {profile?.totalSolved || 0}
                                     </p>
-                                    <span className="text-sm font-medium text-slate-400">/ {stats.total}</span>
+                                    <span className="text-sm font-medium text-slate-400">/ {profile?.totalQuestions || 3000}</span>
                                 </div>
                                 {/* Progress ring visual */}
                                 <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                                     <div 
                                         className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 rounded-full transition-all duration-1000 ease-out"
-                                        style={{ width: `${(stats.solved / stats.total) * 100}%` }}
+                                        style={{ width: `${((profile?.totalSolved || 0) / (profile?.totalQuestions || 3000)) * 100}%` }}
                                     />
                                 </div>
                             </div>
@@ -128,7 +215,7 @@ export function LeetCodeStats({ username }: LeetCodeStatsProps) {
                                     <Trophy className="h-5 w-5 text-white" />
                                 </div>
                                 <p className="text-lg font-black bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent text-center">
-                                    {stats.ranking}
+                                    {rankingDisplay}
                                 </p>
                                 <p className="text-[10px] font-semibold text-amber-600/70 uppercase tracking-wider text-center">Global</p>
                             </div>
@@ -152,8 +239,8 @@ export function LeetCodeStats({ username }: LeetCodeStatsProps) {
                                         <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">Easy</span>
                                         <span className="text-[10px] font-semibold text-emerald-500">{easyPercentage.toFixed(0)}%</span>
                                     </div>
-                                    <p className="text-2xl font-black text-emerald-700 mb-1">{stats.easy}</p>
-                                    <p className="text-[10px] text-emerald-600/70 font-medium">of {stats.easyTotal}</p>
+                                    <p className="text-2xl font-black text-emerald-700 mb-1">{profile?.easySolved || 0}</p>
+                                    <p className="text-[10px] text-emerald-600/70 font-medium">of {profile?.totalEasy || 800}</p>
                                     <div className="mt-3 h-2 rounded-full bg-emerald-100 overflow-hidden">
                                         <div 
                                             className="h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full transition-all duration-700"
@@ -171,8 +258,8 @@ export function LeetCodeStats({ username }: LeetCodeStatsProps) {
                                         <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">Medium</span>
                                         <span className="text-[10px] font-semibold text-amber-500">{mediumPercentage.toFixed(0)}%</span>
                                     </div>
-                                    <p className="text-2xl font-black text-amber-700 mb-1">{stats.medium}</p>
-                                    <p className="text-[10px] text-amber-600/70 font-medium">of {stats.mediumTotal}</p>
+                                    <p className="text-2xl font-black text-amber-700 mb-1">{profile?.mediumSolved || 0}</p>
+                                    <p className="text-[10px] text-amber-600/70 font-medium">of {profile?.totalMedium || 1650}</p>
                                     <div className="mt-3 h-2 rounded-full bg-amber-100 overflow-hidden">
                                         <div 
                                             className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all duration-700"
@@ -190,8 +277,8 @@ export function LeetCodeStats({ username }: LeetCodeStatsProps) {
                                         <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-100 px-2 py-0.5 rounded-full">Hard</span>
                                         <span className="text-[10px] font-semibold text-rose-500">{hardPercentage.toFixed(0)}%</span>
                                     </div>
-                                    <p className="text-2xl font-black text-rose-700 mb-1">{stats.hard}</p>
-                                    <p className="text-[10px] text-rose-600/70 font-medium">of {stats.hardTotal}</p>
+                                    <p className="text-2xl font-black text-rose-700 mb-1">{profile?.hardSolved || 0}</p>
+                                    <p className="text-[10px] text-rose-600/70 font-medium">of {profile?.totalHard || 550}</p>
                                     <div className="mt-3 h-2 rounded-full bg-rose-100 overflow-hidden">
                                         <div 
                                             className="h-full bg-gradient-to-r from-rose-400 to-red-500 rounded-full transition-all duration-700"
@@ -214,7 +301,7 @@ export function LeetCodeStats({ username }: LeetCodeStatsProps) {
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider">Rating</p>
-                                    <p className="text-lg font-black text-indigo-700">{stats.contestRating}</p>
+                                    <p className="text-lg font-black text-indigo-700">{contest?.rating || 'N/A'}</p>
                                 </div>
                             </div>
                         </div>
@@ -228,7 +315,7 @@ export function LeetCodeStats({ username }: LeetCodeStatsProps) {
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-semibold text-orange-500 uppercase tracking-wider">Streak</p>
-                                    <p className="text-lg font-black text-orange-700">{stats.streak} days</p>
+                                    <p className="text-lg font-black text-orange-700">{stats?.streak || 0} days</p>
                                 </div>
                             </div>
                         </div>
@@ -242,11 +329,18 @@ export function LeetCodeStats({ username }: LeetCodeStatsProps) {
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-semibold text-teal-500 uppercase tracking-wider">Acceptance</p>
-                                    <p className="text-lg font-black text-teal-700">{stats.acceptanceRate}%</p>
+                                    <p className="text-lg font-black text-teal-700">{profile?.acceptanceRate?.toFixed(1) || 0}%</p>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    {/* Last updated */}
+                    {lastUpdated && (
+                        <p className="text-[10px] text-slate-400 text-center pt-2">
+                            Last updated: {lastUpdated.toLocaleTimeString()}
+                        </p>
+                    )}
                 </div>
             </div>
         </div>

@@ -19,7 +19,7 @@ export function useAuth() {
             const response = await userApi.getProfile();
             setUser(response.data);
             queryClient.setQueryData(['profile'], response.data);
-        } catch (error) {
+        } catch {
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
         } finally {
