@@ -2,6 +2,10 @@ import api from '@/lib/axios';
 import { Team, JoinRequest, APIResponse } from '@/types';
 
 export const teamApi = {
+    getMyTeams: async (): Promise<APIResponse<Team[]>> => {
+        const response = await api.get('/teams');
+        return response.data;
+    },
     getTeam: async (id: string): Promise<APIResponse<Team>> => {
         const response = await api.get(`/teams/${id}`);
         return response.data;

@@ -64,8 +64,9 @@ export function RegisterForm() {
         try {
             await signup(data);
         } catch (err: unknown) {
-            const error = err as { response?: { data?: { message?: string } } };
-            setError(error.response?.data?.message || 'Registration failed. Please try again.');
+            const error = err as { response?: { data?: { message?: string | Record<string, unknown> } } };
+            const message = error.response?.data?.message;
+            setError(typeof message === 'string' ? message : 'Registration failed. Please check your details and try again.');
         }
     };
 

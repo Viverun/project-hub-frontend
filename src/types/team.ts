@@ -10,9 +10,13 @@ export interface TeamMember {
 
 export interface Team {
     id: string;
-    projectId: string;
+    projectId?: string;
+    name?: string;
+    description?: string;
     members: TeamMember[];
     capacity: number;
+    teamMemberCount?: number;
+    teamCapacity?: number;
 }
 
 export type JoinRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';

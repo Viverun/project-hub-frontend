@@ -26,6 +26,7 @@ const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
                         src={src}
                         alt={alt || 'Avatar'}
                         fill
+                        unoptimized
                         className="aspect-square h-full w-full object-cover"
                         onError={() => setHasError(true)}
                     />

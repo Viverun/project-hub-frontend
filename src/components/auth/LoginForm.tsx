@@ -59,8 +59,9 @@ export function LoginForm() {
         try {
             await login(data);
         } catch (err: unknown) {
-            const error = err as { response?: { data?: { message?: string } } };
-            setError(error.response?.data?.message || 'Login failed. Please try again.');
+            const error = err as { response?: { data?: { message?: string | Record<string, unknown> } } };
+            const message = error.response?.data?.message;
+            setError(typeof message === 'string' ? message : 'Login failed. Please check credentials and try again.');
         }
     };
 

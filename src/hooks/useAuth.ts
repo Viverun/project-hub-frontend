@@ -37,11 +37,17 @@ export function useAuth() {
     const login = useCallback(async (credentials: Record<string, string>) => {
         setIsLoading(true);
         try {
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userRole');
             const response = await authApi.login(credentials);
+            const selectedRole = credentials.role === 'DEPARTMENT' ? 'DEPARTMENT' : 'STUDENT';
+            localStorage.setItem('userRole', selectedRole);
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('refreshToken', response.data.refreshToken);
-            setUser(response.data.user);
-            queryClient.setQueryData(['profile'], response.data.user);
+            const normalizedUser = { ...response.data.user, role: selectedRole };
+            setUser(normalizedUser);
+            queryClient.setQueryData(['profile'], normalizedUser);
             router.push('/dashboard');
         } catch (error) {
             throw error;
@@ -53,11 +59,17 @@ export function useAuth() {
     const register = useCallback(async (userData: Record<string, string>) => {
         setIsLoading(true);
         try {
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userRole');
             const response = await authApi.register(userData);
+            const selectedRole = userData.role === 'DEPARTMENT' ? 'DEPARTMENT' : 'STUDENT';
+            localStorage.setItem('userRole', selectedRole);
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('refreshToken', response.data.refreshToken);
-            setUser(response.data.user);
-            queryClient.setQueryData(['profile'], response.data.user);
+            const normalizedUser = { ...response.data.user, role: selectedRole };
+            setUser(normalizedUser);
+            queryClient.setQueryData(['profile'], normalizedUser);
             router.push('/dashboard');
         } catch (error) {
             throw error;
@@ -68,6 +80,7 @@ export function useAuth() {
 
     const logout = useCallback(() => {
         authApi.logout();
+        localStorage.removeItem('userRole');
         setUser(null);
         queryClient.removeQueries({ queryKey: ['profile'] });
         router.push('/login');

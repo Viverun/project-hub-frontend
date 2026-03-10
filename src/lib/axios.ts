@@ -9,6 +9,8 @@ const api = axios.create({
     },
 });
 
+const isMockApiEnabled = process.env.NEXT_PUBLIC_ENABLE_MOCK_API === 'true';
+
 // Helper functions for mock user storage
 const USERS_STORAGE_KEY = 'mock_users';
 const CURRENT_USER_KEY = 'current_user_id';
@@ -28,14 +30,14 @@ function getCurrentUser(): User | null {
     if (typeof window === 'undefined') return null;
     const userId = localStorage.getItem(CURRENT_USER_KEY);
     if (!userId) return null;
-    
+
     // Check if it's the mock student
     if (userId === MOCK_STUDENT.id) return MOCK_STUDENT;
-    
+
     const users = getStoredUsers();
     const userWithPassword = users[userId];
     if (!userWithPassword) return null;
-    
+
     // Return user without password
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...user } = userWithPassword;
@@ -54,17 +56,16 @@ function generateUserId(): string {
 // Mocking Interceptor for Demo Purpose
 api.interceptors.request.use(
     async (config) => {
-        // If we are in development and no real API is responding, or we want to force mock
-        if (process.env.NODE_ENV === 'development') {
+        if (isMockApiEnabled) {
             const url = config.url || '';
-            
+
             // Handle registration
             if (url.includes('/auth/register') && config.method === 'post') {
                 const requestData = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
                 const { name, email, password } = requestData;
-                
+
                 const users = getStoredUsers();
-                
+
                 // Check if email already exists
                 const existingUser = Object.values(users).find(u => u.email === email);
                 if (existingUser) {
@@ -73,7 +74,7 @@ api.interceptors.request.use(
                     };
                     return config;
                 }
-                
+
                 // Create new user
                 const newUserId = generateUserId();
                 const newUser: User & { password: string } = {
@@ -90,18 +91,18 @@ api.interceptors.request.use(
                     followingCount: 0,
                     createdAt: new Date().toISOString(),
                 };
-                
+
                 users[newUserId] = newUser;
                 saveStoredUsers(users);
                 setCurrentUser(newUserId);
-                
+
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { password: _pwd, ...userWithoutPassword } = newUser;
-                
+
                 config.adapter = async () => ({
-                    data: { 
-                        data: { user: userWithoutPassword, token: 'mock-token-' + newUserId, refreshToken: 'mock-refresh-' + newUserId }, 
-                        message: 'Registration successful' 
+                    data: {
+                        data: { user: userWithoutPassword, token: 'mock-token-' + newUserId, refreshToken: 'mock-refresh-' + newUserId },
+                        message: 'Registration successful'
                     },
                     status: 200,
                     statusText: 'OK',
@@ -110,19 +111,19 @@ api.interceptors.request.use(
                 });
                 return config;
             }
-            
+
             // Handle login
             if (url.includes('/auth/login') && config.method === 'post') {
                 const requestData = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
                 const { email, password } = requestData;
-                
+
                 // Check mock student first
                 if (email === MOCK_STUDENT.email) {
                     setCurrentUser(MOCK_STUDENT.id);
                     config.adapter = async () => ({
-                        data: { 
-                            data: { user: MOCK_STUDENT, token: 'mock-token', refreshToken: 'mock-refresh' }, 
-                            message: 'Login successful' 
+                        data: {
+                            data: { user: MOCK_STUDENT, token: 'mock-token', refreshToken: 'mock-refresh' },
+                            message: 'Login successful'
                         },
                         status: 200,
                         statusText: 'OK',
@@ -131,19 +132,19 @@ api.interceptors.request.use(
                     });
                     return config;
                 }
-                
+
                 // Check stored users
                 const users = getStoredUsers();
                 const user = Object.values(users).find(u => u.email === email && u.password === password);
-                
+
                 if (user) {
                     setCurrentUser(user.id);
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     const { password: _pwd, ...userWithoutPassword } = user;
                     config.adapter = async () => ({
-                        data: { 
-                            data: { user: userWithoutPassword, token: 'mock-token-' + user.id, refreshToken: 'mock-refresh-' + user.id }, 
-                            message: 'Login successful' 
+                        data: {
+                            data: { user: userWithoutPassword, token: 'mock-token-' + user.id, refreshToken: 'mock-refresh-' + user.id },
+                            message: 'Login successful'
                         },
                         status: 200,
                         statusText: 'OK',
@@ -152,14 +153,14 @@ api.interceptors.request.use(
                     });
                     return config;
                 }
-                
+
                 // Invalid credentials
                 config.adapter = async () => {
                     throw { response: { status: 401, data: { message: 'Invalid email or password' } } };
                 };
                 return config;
             }
-            
+
             // Handle get profile
             if (url.includes('/user/profile') && config.method === 'get') {
                 const currentUser = getCurrentUser();
@@ -174,12 +175,12 @@ api.interceptors.request.use(
                     return config;
                 }
             }
-            
+
             // Handle update profile
             if (url.includes('/user/profile') && config.method === 'patch') {
                 const requestData = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
                 const currentUserId = localStorage.getItem(CURRENT_USER_KEY);
-                
+
                 if (currentUserId && currentUserId !== MOCK_STUDENT.id) {
                     const users = getStoredUsers();
                     if (users[currentUserId]) {
@@ -198,21 +199,21 @@ api.interceptors.request.use(
                     }
                 }
             }
-            
+
             // Handle projects - only show mock projects for mock student
             if (url.includes('/projects')) {
                 const currentUserId = localStorage.getItem(CURRENT_USER_KEY);
                 const isMockStudent = currentUserId === MOCK_STUDENT.id;
-                
+
                 config.adapter = async () => ({
-                    data: { 
-                        data: { 
-                            items: isMockStudent ? MOCK_PROJECTS : [], 
-                            page: 1, 
-                            totalPages: 1, 
-                            totalItems: isMockStudent ? MOCK_PROJECTS.length : 0 
-                        }, 
-                        message: 'Projects fetched' 
+                    data: {
+                        data: {
+                            items: isMockStudent ? MOCK_PROJECTS : [],
+                            page: 1,
+                            totalPages: 1,
+                            totalItems: isMockStudent ? MOCK_PROJECTS.length : 0
+                        },
+                        message: 'Projects fetched'
                     },
                     status: 200,
                     statusText: 'OK',
@@ -221,7 +222,7 @@ api.interceptors.request.use(
                 });
                 return config;
             }
-            
+
             // Other mock routes
             const mockRoutes: Record<string, Record<string, unknown>> = {
                 '/events': { data: { items: MOCK_EVENTS, page: 1, totalPages: 1, totalItems: 2 }, message: 'Events fetched' },
@@ -242,6 +243,12 @@ api.interceptors.request.use(
         }
 
         const token = localStorage.getItem('token');
+        if (!isMockApiEnabled && token?.startsWith('mock-token')) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem(CURRENT_USER_KEY);
+            return config;
+        }
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -255,21 +262,36 @@ api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
+        const requestUrl = originalRequest?.url || '';
+        const isAuthEndpoint =
+            requestUrl.includes('/auth/login') ||
+            requestUrl.includes('/auth/register') ||
+            requestUrl.includes('/auth/refresh');
 
         // Custom error for no internet or server down - can be used to fail-over to mock
         if (!error.response && process.env.NODE_ENV === 'development') {
             // We can handle specific failover here if needed
         }
 
+        if (isAuthEndpoint) {
+            return Promise.reject(error);
+        }
+
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
             try {
                 const refreshToken = localStorage.getItem('refreshToken');
+                if (!refreshToken) {
+                    return Promise.reject(error);
+                }
                 const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
-                    refreshToken,
+                    refresh_token: refreshToken,
                 });
 
-                const { token } = response.data.data;
+                const token = response.data?.data?.access_token || response.data?.data?.token;
+                if (!token) {
+                    return Promise.reject(error);
+                }
                 localStorage.setItem('token', token);
 
                 originalRequest.headers.Authorization = `Bearer ${token}`;
@@ -277,9 +299,6 @@ api.interceptors.response.use(
             } catch (refreshError) {
                 localStorage.removeItem('token');
                 localStorage.removeItem('refreshToken');
-                if (typeof window !== 'undefined') {
-                    window.location.href = '/login';
-                }
                 return Promise.reject(refreshError);
             }
         }
