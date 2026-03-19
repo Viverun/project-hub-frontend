@@ -14,9 +14,9 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ({ className, variant = 'primary', size = 'md', isLoading, disabled, children, ...props }, ref) => {
         const variants = {
-            primary: 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-200',
+            primary: 'bg-teal-700 text-white hover:bg-teal-800 shadow-md shadow-teal-900/20',
             secondary: 'bg-slate-800 text-white hover:bg-slate-900 shadow-md shadow-slate-200',
-            outline: 'border border-slate-300 bg-transparent hover:bg-slate-50 text-slate-700',
+            outline: 'border border-slate-300 bg-white/70 hover:bg-slate-50 text-slate-700',
             ghost: 'hover:bg-slate-100 text-slate-600',
             danger: 'bg-red-600 text-white hover:bg-red-700 shadow-md shadow-red-200',
         };
@@ -33,7 +33,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                 whileHover={{ scale: 1.02, y: -1 }}
                 whileTap={{ scale: 0.98 }}
                 className={cn(
-                    'inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:pointer-events-none disabled:opacity-50',
+                    'inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 disabled:pointer-events-none disabled:opacity-50',
                     variants[variant],
                     sizes[size],
                     className

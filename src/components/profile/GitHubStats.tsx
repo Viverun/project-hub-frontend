@@ -16,15 +16,17 @@ export function GitHubStats({ username }: GitHubStatsProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const oauthSession = githubApi.getStoredOAuthSession();
+    const effectiveUsername = username || oauthSession?.githubUsername;
 
     const fetchStats = useCallback(async () => {
-        if (!username) return;
+        if (!effectiveUsername && !oauthSession?.sessionId) return;
         
         setIsLoading(true);
         setError(null);
         
         try {
-            const data = await githubApi.getStats(username);
+            const data = await githubApi.getStats(effectiveUsername || '');
             setStats(data);
             setLastUpdated(new Date());
         } catch (err) {
@@ -33,13 +35,13 @@ export function GitHubStats({ username }: GitHubStatsProps) {
         } finally {
             setIsLoading(false);
         }
-    }, [username]);
+    }, [effectiveUsername, oauthSession?.sessionId]);
 
     useEffect(() => {
         fetchStats();
     }, [fetchStats]);
 
-    if (!username) {
+    if (!effectiveUsername && !oauthSession?.sessionId) {
         return (
             <motion.div 
                 initial={{ opacity: 0, y: 20 }}
@@ -226,13 +228,13 @@ export function GitHubStats({ username }: GitHubStatsProps) {
                             <RefreshCw className={`h-4 w-4 text-slate-400 ${isLoading ? 'animate-spin' : ''}`} />
                         </motion.button>
                         <motion.a 
-                            href={`https://github.com/${username}`}
+                            href={`https://github.com/${stats?.user?.login || effectiveUsername}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             whileHover={{ x: 3 }}
                             className="text-xs font-medium text-slate-400 hover:text-indigo-600 flex items-center gap-1.5 transition-colors"
                         >
-                            @{username}
+                            @{stats?.user?.login || effectiveUsername}
                             <ExternalLink className="h-3 w-3" />
                         </motion.a>
                     </div>

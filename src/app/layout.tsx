@@ -1,14 +1,25 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Manrope, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import { cn } from "@/lib/utils";
 
-const inter = Inter({ subsets: ["latin"] });
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: "APSIT Student Sphere | Student Project Platform",
-  description: "A professional platform for students to collaborate, share projects, and find teammates.",
+  title: "project-web | Student Project Platform",
+  description:
+    "A professional platform for students to collaborate, share projects, and find teammates.",
 };
 
 export default function RootLayout({
@@ -18,7 +29,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={cn("antialiased", inter.className)}>
+      <body
+        className={cn(
+          "antialiased bg-app text-slate-900",
+          manrope.variable,
+          spaceGrotesk.variable
+        )}
+      >
         <Providers>{children}</Providers>
       </body>
     </html>

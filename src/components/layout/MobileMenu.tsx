@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+    Compass,
     LayoutDashboard,
     Search,
     Users,
@@ -22,7 +23,8 @@ import { useUser } from '@/hooks/useUser';
 
 const baseNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Projects', href: '/projects', icon: Search },
+    { name: 'Discover', href: '/discover', icon: Compass },
+    { name: 'Projects', href: '/projects?discover=popular', icon: Search },
     { name: 'My Teams', href: '/teams', icon: Users, role: 'STUDENT' },
     { name: 'Events', href: '/events', icon: Calendar },
     { name: 'Manage Events', href: '/manage-events', icon: Calendar, role: 'DEPARTMENT' },
@@ -66,9 +68,9 @@ export function MobileMenu() {
             </Button>
 
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex flex-col bg-white animate-in slide-in-from-bottom duration-300">
-                    <div className="flex items-center justify-between px-6 h-16 border-b border-slate-100">
-                        <span className="text-xl font-bold text-indigo-600">APSIT Student Sphere</span>
+                <div className="fixed inset-0 z-50 flex flex-col bg-slate-50/95 backdrop-blur animate-in slide-in-from-bottom duration-300">
+                    <div className="flex h-16 items-center justify-between border-b border-slate-200 px-6">
+                        <span className="font-display text-xl font-bold text-slate-900">project-web</span>
                         <Button
                             variant="ghost"
                             size="sm"
@@ -80,10 +82,10 @@ export function MobileMenu() {
                         </Button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto px-6 py-8 space-y-8">
+                    <div className="flex-1 space-y-8 overflow-y-auto px-6 py-8">
                         <div>
                             <Link href="/projects/create">
-                                <button className="flex w-full items-center justify-center gap-3 rounded-xl bg-indigo-600 px-6 py-4 text-lg font-bold text-white shadow-lg shadow-indigo-200 active:scale-95 transition-all">
+                                <button className="flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-teal-700 to-orange-600 px-6 py-4 text-lg font-bold text-white shadow-lg shadow-teal-900/20 transition-all active:scale-95">
                                     <PlusCircle className="h-6 w-6" />
                                     New Project
                                 </button>
@@ -92,22 +94,23 @@ export function MobileMenu() {
 
                         <nav className="space-y-2">
                             {navigation.map((item) => {
-                                const isActive = pathname === item.href;
+                                const itemPath = item.href.split('?')[0];
+                                const isActive = pathname === itemPath;
                                 return (
                                     <Link
                                         key={item.name}
                                         href={item.href}
                                         className={cn(
-                                            'flex items-center gap-4 rounded-xl px-4 py-4 text-lg font-semibold transition-all active:bg-slate-50',
+                                            'flex items-center gap-4 rounded-xl px-4 py-4 text-lg font-semibold transition-all active:bg-white',
                                             isActive
-                                                ? 'bg-indigo-50 text-indigo-600'
+                                                ? 'bg-teal-100 text-teal-800'
                                                 : 'text-slate-600 hover:text-slate-900'
                                         )}
                                     >
                                         <item.icon
                                             className={cn(
                                                 'h-6 w-6',
-                                                isActive ? 'text-indigo-600' : 'text-slate-400'
+                                                isActive ? 'text-teal-700' : 'text-slate-400'
                                             )}
                                         />
                                         {item.name}
@@ -116,13 +119,13 @@ export function MobileMenu() {
                             })}
                         </nav>
 
-                        <div className="pt-8 border-t border-slate-100">
+                        <div className="border-t border-slate-200 pt-8">
                             <Link
                                 href="/settings"
                                 className={cn(
-                                    'flex items-center gap-4 rounded-xl px-4 py-4 text-lg font-semibold transition-all active:bg-slate-50',
+                                    'flex items-center gap-4 rounded-xl px-4 py-4 text-lg font-semibold transition-all active:bg-white',
                                     pathname === '/settings'
-                                        ? 'bg-indigo-50 text-indigo-600'
+                                        ? 'bg-teal-100 text-teal-800'
                                         : 'text-slate-600 hover:text-slate-900'
                                 )}
                             >

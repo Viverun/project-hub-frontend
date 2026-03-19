@@ -16,6 +16,7 @@ export function useProjects(initialFilters?: ProjectFilter) {
         isFetchingNextPage,
         isLoading,
         error,
+        refetch,
     } = useInfiniteQuery({
         queryKey: ['projects', filters],
         queryFn: ({ pageParam = 1 }) =>
@@ -41,6 +42,7 @@ export function useProjects(initialFilters?: ProjectFilter) {
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
+        refetch,
         bookmarkProject: bookmarkMutation.mutateAsync,
         setFilters
     };

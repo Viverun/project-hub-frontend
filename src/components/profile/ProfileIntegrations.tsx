@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Github, 
@@ -16,6 +16,7 @@ import {
     AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { githubApi } from '@/api/github';
 
 interface ProfileIntegrationsProps {
     githubUsername?: string;
@@ -39,6 +40,116 @@ export function ProfileIntegrations({
     const [isLoading, setIsLoading] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
     const [verificationStatus, setVerificationStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [isGithubAuthorizing, setIsGithubAuthorizing] = useState(false);
+    const [githubAuthError, setGithubAuthError] = useState<string | null>(null);
+    const [oauthSession, setOauthSession] = useState(() => githubApi.getStoredOAuthSession());
+
+    useEffect(() => {
+        const syncSessionFromStorage = () => {
+            const session = githubApi.getStoredOAuthSession();
+            setOauthSession(session);
+            if (session?.githubUsername) {
+                onGithubConnect?.(session.githubUsername);
+                setIsGithubAuthorizing(false);
+                setGithubAuthError(null);
+            }
+        };
+
+        const onStorage = (event: StorageEvent) => {
+            if (event.key && event.key !== 'github_oauth_session') {
+                return;
+            }
+            syncSessionFromStorage();
+        };
+
+        window.addEventListener('storage', onStorage);
+        syncSessionFromStorage();
+
+        return () => {
+            window.removeEventListener('storage', onStorage);
+        };
+    }, [onGithubConnect]);
+
+    const handleGitHubOAuth = async () => {
+        try {
+            setIsGithubAuthorizing(true);
+            setGithubAuthError(null);
+            const start = await githubApi.getOAuthStartUrl();
+            if (!start?.authorizationUrl) {
+                throw new Error('Missing GitHub authorization URL');
+            }
+
+            const popup = window.open(start.authorizationUrl, 'github_oauth', 'width=620,height=740');
+            if (!popup) {
+                throw new Error('Popup was blocked. Please allow popups and try again.');
+            }
+
+            await new Promise<void>((resolve, reject) => {
+                const timeout = window.setTimeout(() => {
+                    window.removeEventListener('message', onMessage);
+                    reject(new Error('GitHub authorization timed out. Please try again.'));
+                }, 120000);
+
+                const onMessage = (event: MessageEvent) => {
+                    const expectedOrigins = new Set<string>([window.location.origin]);
+                    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+                    if (apiUrl) {
+                        try {
+                            expectedOrigins.add(new URL(apiUrl).origin);
+                        } catch {
+                            // Ignore malformed API URL and continue with known origins.
+                        }
+                    }
+
+                    if (!expectedOrigins.has(event.origin)) {
+                        return;
+                    }
+
+                    const data = event.data as {
+                        type?: string;
+                        status?: 'success' | 'error';
+                        message?: string;
+                        payload?: {
+                            sessionId?: string;
+                            githubUsername?: string;
+                        };
+                    };
+
+                    if (data?.type !== 'github_oauth') {
+                        return;
+                    }
+
+                    window.clearTimeout(timeout);
+                    window.removeEventListener('message', onMessage);
+
+                    if (data.status !== 'success' || !data.payload?.sessionId || !data.payload?.githubUsername) {
+                        reject(new Error(data.message || 'GitHub authorization failed'));
+                        return;
+                    }
+
+                    githubApi.setStoredOAuthSession({
+                        sessionId: data.payload.sessionId,
+                        githubUsername: data.payload.githubUsername,
+                    });
+                    setOauthSession({
+                        sessionId: data.payload.sessionId,
+                        githubUsername: data.payload.githubUsername,
+                    });
+                    onGithubConnect?.(data.payload.githubUsername);
+                    resolve();
+                };
+
+                window.addEventListener('message', onMessage);
+            });
+        } catch (error) {
+            const err = error as { response?: { data?: { message?: string } }; message?: string };
+            const serverMessage = err.response?.data?.message;
+            setGithubAuthError(serverMessage || err.message || 'Failed to start GitHub authorization');
+            console.error(error);
+        } finally {
+            setIsGithubAuthorizing(false);
+        }
+    };
 
     const handleConnect = async (platform: 'github' | 'leetcode') => {
         if (!inputValue.trim()) return;
@@ -50,17 +161,28 @@ export function ProfileIntegrations({
         // Simulate API verification
         await new Promise(resolve => setTimeout(resolve, 1500));
         
+        const normalizedInput = platform === 'leetcode'
+            ? inputValue
+                .trim()
+                .replace(/^https?:\/\/(www\.)?leetcode\.com\//i, '')
+                .replace(/^u\//i, '')
+                .replace(/^@/, '')
+                .replace(/\/$/, '')
+                .split('/')[0]
+                .trim()
+            : inputValue.trim();
+
         // Mock verification (in real app, validate the username exists)
-        const isValid = inputValue.length >= 2;
+        const isValid = normalizedInput.length >= 2;
         
         if (isValid) {
             setVerificationStatus('success');
             await new Promise(resolve => setTimeout(resolve, 500));
             
             if (platform === 'github') {
-                onGithubConnect?.(inputValue);
+                onGithubConnect?.(normalizedInput);
             } else {
-                onLeetCodeConnect?.(inputValue);
+                onLeetCodeConnect?.(normalizedInput);
             }
             setActiveModal(null);
             setInputValue('');
@@ -90,9 +212,11 @@ export function ProfileIntegrations({
             gradient: 'from-slate-700 to-slate-900',
             bgGradient: 'from-slate-50 to-slate-100/50',
             borderColor: 'border-slate-200',
-            connected: !!githubUsername,
-            username: githubUsername,
-            url: githubUsername ? `https://github.com/${githubUsername}` : undefined,
+            connected: !!(githubUsername || oauthSession?.sessionId),
+            username: githubUsername || oauthSession?.githubUsername,
+            url: (githubUsername || oauthSession?.githubUsername)
+                ? `https://github.com/${githubUsername || oauthSession?.githubUsername}`
+                : undefined,
             features: ['Repository stats', 'Contribution graph', 'Star count', 'Fork tracking'],
             placeholder: 'Enter your GitHub username'
         },
@@ -115,6 +239,12 @@ export function ProfileIntegrations({
 
     return (
         <div className="space-y-6">
+            {githubAuthError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    {githubAuthError}
+                </div>
+            )}
+
             <div className="flex items-center gap-3 mb-6">
                 <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/25">
                     <Link2 className="h-5 w-5 text-white" />
@@ -229,26 +359,58 @@ export function ProfileIntegrations({
                                             <motion.button
                                                 whileHover={{ scale: 1.02 }}
                                                 whileTap={{ scale: 0.98 }}
-                                                onClick={() => handleDisconnect(integration.id as 'github' | 'leetcode')}
+                                                onClick={async () => {
+                                                    if (integration.id === 'github') {
+                                                        await githubApi.clearStoredOAuthSession();
+                                                        setOauthSession(null);
+                                                    }
+                                                    handleDisconnect(integration.id as 'github' | 'leetcode');
+                                                }}
                                                 className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 border border-rose-100 text-sm font-medium text-rose-600 hover:bg-rose-100 transition-colors"
                                             >
                                                 <Unlink className="h-4 w-4" />
+                                                {integration.id === 'github' ? 'Unauthorize GitHub' : 'Disconnect'}
                                             </motion.button>
                                         </div>
+
+                                        {integration.id === 'github' && (
+                                            <a
+                                                href="https://github.com/settings/applications"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-700"
+                                            >
+                                                Manage authorized apps on GitHub
+                                                <ExternalLink className="h-3.5 w-3.5" />
+                                            </a>
+                                        )}
                                     </div>
                                 ) : (
                                     <motion.button
                                         whileHover={{ scale: 1.02, y: -1 }}
                                         whileTap={{ scale: 0.98 }}
                                         onClick={() => {
-                                            setActiveModal(integration.id as 'github' | 'leetcode');
+                                            if (integration.id === 'github') {
+                                                handleGitHubOAuth();
+                                                return;
+                                            }
+                                            setActiveModal('leetcode');
                                             setInputValue('');
                                             setVerificationStatus('idle');
                                         }}
                                         className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r ${integration.gradient} text-white text-sm font-semibold shadow-lg hover:shadow-xl transition-shadow`}
                                     >
-                                        <Link2 className="h-4 w-4" />
-                                        Connect {integration.name}
+                                        {integration.id === 'github' && isGithubAuthorizing ? (
+                                            <>
+                                                <RefreshCw className="h-4 w-4 animate-spin" />
+                                                Authorizing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Link2 className="h-4 w-4" />
+                                                {integration.id === 'github' ? 'Authorize GitHub' : `Connect ${integration.name}`}
+                                            </>
+                                        )}
                                     </motion.button>
                                 )}
                             </div>

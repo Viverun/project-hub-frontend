@@ -1,4 +1,5 @@
 import axios from 'axios';
+import api from '@/lib/axios';
 
 export interface GitHubUser {
     login: string;
@@ -34,9 +35,67 @@ export interface GitHubStats {
     contributionsThisYear: number;
 }
 
+export interface GitHubOAuthStartResponse {
+    authorizationUrl: string;
+}
+
+export interface GitHubOAuthSession {
+    sessionId: string;
+    githubUsername: string;
+}
+
+const GITHUB_OAUTH_STORAGE_KEY = 'github_oauth_session';
+
 const GITHUB_API = 'https://api.github.com';
 
 export const githubApi = {
+    getStoredOAuthSession(): GitHubOAuthSession | null {
+        if (typeof window === 'undefined') return null;
+        const raw = localStorage.getItem(GITHUB_OAUTH_STORAGE_KEY);
+        if (!raw) return null;
+
+        try {
+            return JSON.parse(raw) as GitHubOAuthSession;
+        } catch {
+            localStorage.removeItem(GITHUB_OAUTH_STORAGE_KEY);
+            return null;
+        }
+    },
+
+    setStoredOAuthSession(session: GitHubOAuthSession) {
+        if (typeof window === 'undefined') return;
+        localStorage.setItem(GITHUB_OAUTH_STORAGE_KEY, JSON.stringify(session));
+    },
+
+    async clearStoredOAuthSession() {
+        const session = this.getStoredOAuthSession();
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem(GITHUB_OAUTH_STORAGE_KEY);
+        }
+
+        if (!session) return;
+        try {
+            await api.post('/user/github/oauth/disconnect', { session_id: session.sessionId });
+        } catch {
+            // Ignore disconnect errors during local cleanup.
+        }
+    },
+
+    async getOAuthStartUrl(): Promise<GitHubOAuthStartResponse> {
+        const response = await api.get('/user/github/oauth/start');
+        return response.data?.data as GitHubOAuthStartResponse;
+    },
+
+    async getAuthorizedStats(sessionId: string): Promise<GitHubStats> {
+        const response = await api.get('/user/github/oauth/stats', {
+            params: {
+                session_id: sessionId,
+            },
+        });
+
+        return response.data?.data as GitHubStats;
+    },
+
     async getUser(username: string): Promise<GitHubUser> {
         const response = await axios.get(`${GITHUB_API}/users/${username}`);
         return response.data;
@@ -54,6 +113,24 @@ export const githubApi = {
 
     async getStats(username: string): Promise<GitHubStats> {
         try {
+            const oauthSession = this.getStoredOAuthSession();
+            if (oauthSession?.sessionId) {
+                try {
+                    return await this.getAuthorizedStats(oauthSession.sessionId);
+                } catch (error) {
+                    const statusCode = (error as { response?: { status?: number } })?.response?.status;
+
+                    // If backend session has expired or is invalid, clear local OAuth session and continue.
+                    if (statusCode === 401 || statusCode === 403) {
+                        if (typeof window !== 'undefined') {
+                            localStorage.removeItem(GITHUB_OAUTH_STORAGE_KEY);
+                        }
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+
             const [user, repos] = await Promise.all([
                 this.getUser(username),
                 this.getRepos(username),

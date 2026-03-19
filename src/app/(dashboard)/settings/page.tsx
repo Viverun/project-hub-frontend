@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useUser } from '@/hooks/useUser';
 import { useAuth } from '@/hooks/useAuth';
+import { MapPin, PencilLine, Shield, Sparkles } from 'lucide-react';
 
 export default function SettingsPage() {
     const { profile, isLoading, updateProfile, isUpdating } = useUser();
@@ -15,6 +16,7 @@ export default function SettingsPage() {
 
     const [name, setName] = useState('');
     const [bio, setBio] = useState('');
+    const [location, setLocation] = useState('');
     const [githubUsername, setGithubUsername] = useState('');
     const [leetCodeUrl, setLeetCodeUrl] = useState('');
     const [skillsText, setSkillsText] = useState('');
@@ -25,6 +27,7 @@ export default function SettingsPage() {
         if (!profile) return;
         setName(profile.name || '');
         setBio(profile.bio || '');
+        setLocation(profile.location || '');
         setGithubUsername(profile.githubUsername || '');
         setLeetCodeUrl(profile.leetCodeUrl || '');
         setSkillsText((profile.skills || []).join(', '));
@@ -43,6 +46,7 @@ export default function SettingsPage() {
             await updateProfile({
                 name,
                 bio,
+                location,
                 githubUsername,
                 leetCodeUrl,
                 skills,
@@ -62,7 +66,7 @@ export default function SettingsPage() {
 
             <div>
                 <h1 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h1>
-                <p className="text-slate-600">Update your profile details and manage your session.</p>
+                <p className="text-slate-600">Customize your public profile and account preferences.</p>
             </div>
 
             {isLoading ? (
@@ -72,9 +76,12 @@ export default function SettingsPage() {
             ) : (
                 <div className="grid gap-6 lg:grid-cols-3">
                     <Card className="lg:col-span-2">
-                        <CardHeader>
-                            <CardTitle className="text-xl">Edit Profile</CardTitle>
-                            <CardDescription>These details are shown across your account.</CardDescription>
+                        <CardHeader className="border-b border-slate-100 bg-slate-50/70">
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                                <PencilLine className="h-5 w-5 text-indigo-600" />
+                                Edit Profile
+                            </CardTitle>
+                            <CardDescription>These details are shown on your profile and project collaborations.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {message && (
@@ -94,6 +101,14 @@ export default function SettingsPage() {
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder="Your full name"
+                            />
+
+                            <Input
+                                label="Location"
+                                value={location}
+                                onChange={(e) => setLocation(e.target.value)}
+                                placeholder="City, Country"
+                                icon={<MapPin className="h-4 w-4" />}
                             />
 
                             <div className="space-y-1.5">
@@ -133,17 +148,36 @@ export default function SettingsPage() {
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-xl">Session</CardTitle>
-                            <CardDescription>Manage your current login session.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Button variant="danger" className="w-full" onClick={logout}>
-                                Logout
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    <div className="space-y-6">
+                        <Card>
+                            <CardHeader className="border-b border-slate-100 bg-slate-50/70">
+                                <CardTitle className="flex items-center gap-2 text-xl">
+                                    <Shield className="h-5 w-5 text-slate-700" />
+                                    Session
+                                </CardTitle>
+                                <CardDescription>Manage your current login session securely.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Button variant="danger" className="w-full" onClick={logout}>
+                                    Logout
+                                </Button>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="border-b border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50/60">
+                                <CardTitle className="flex items-center gap-2 text-xl text-amber-800">
+                                    <Sparkles className="h-5 w-5" />
+                                    Profile Tips
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2 text-sm text-slate-600">
+                                <p>Add location so teammates can find collaborators in nearby time zones.</p>
+                                <p>Keep your bio short and specific for better profile discovery.</p>
+                                <p>List your strongest skills first (comma-separated).</p>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             )}
         </div>

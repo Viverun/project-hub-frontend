@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Users, ArrowRight } from 'lucide-react';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
@@ -8,15 +10,33 @@ import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { teamApi } from '@/api/team';
 import { Team } from '@/types';
+import { useUser } from '@/hooks/useUser';
 
 export default function TeamsPage() {
+    const router = useRouter();
+    const { profile, isLoading: profileLoading } = useUser();
+
+    useEffect(() => {
+        if (profileLoading || profile) return;
+        router.replace('/login');
+    }, [profile, profileLoading, router]);
+
     const { data: teamsRes, isLoading, error } = useQuery({
         queryKey: ['my-teams'],
         queryFn: () => teamApi.getMyTeams(),
         retry: false,
+        enabled: !!profile,
     });
 
     const teams = (teamsRes?.data || []) as Team[];
+
+    if (profileLoading || (!profile && typeof window !== 'undefined')) {
+        return (
+            <div className="flex h-64 items-center justify-center">
+                <Spinner size="lg" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">

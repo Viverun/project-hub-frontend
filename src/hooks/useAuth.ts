@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/api/auth';
 import { userApi } from '@/api/user';
-import { User } from '@/types';
+import { User, UserRole } from '@/types';
 import { useQueryClient } from '@tanstack/react-query';
 
 export function useAuth() {
@@ -41,7 +41,7 @@ export function useAuth() {
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('userRole');
             const response = await authApi.login(credentials);
-            const selectedRole = credentials.role === 'DEPARTMENT' ? 'DEPARTMENT' : 'STUDENT';
+            const selectedRole: UserRole = credentials.role === 'DEPARTMENT' ? 'DEPARTMENT' : 'STUDENT';
             localStorage.setItem('userRole', selectedRole);
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('refreshToken', response.data.refreshToken);
@@ -63,7 +63,7 @@ export function useAuth() {
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('userRole');
             const response = await authApi.register(userData);
-            const selectedRole = userData.role === 'DEPARTMENT' ? 'DEPARTMENT' : 'STUDENT';
+            const selectedRole: UserRole = userData.role === 'DEPARTMENT' ? 'DEPARTMENT' : 'STUDENT';
             localStorage.setItem('userRole', selectedRole);
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('refreshToken', response.data.refreshToken);

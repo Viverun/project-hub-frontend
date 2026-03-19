@@ -30,77 +30,104 @@ export interface LeetCodeFullStats {
     badges: number;
 }
 
-// Using alfa-leetcode-api (reliable public proxy)
-// Note: LeetCode doesn't have an official public API, so we use community proxies
-const LEETCODE_API = 'https://alfa-leetcode-api.onrender.com';
+const LEETCODE_CACHE_PREFIX = 'leetcode_stats_cache:v2:';
+const LEETCODE_USERNAME_STORAGE_KEY = 'leetcode_connected_username:v1';
+
+function normalizeLeetCodeUsername(input: string): string {
+    const raw = (input || '').trim();
+    if (!raw) return '';
+
+    // Allow users to paste full profile URLs like https://leetcode.com/u/username/
+    const cleaned = raw
+        .replace(/^https?:\/\/(www\.)?leetcode\.com\//i, '')
+        .replace(/^u\//i, '')
+        .replace(/^@/, '')
+        .replace(/\/$/, '');
+
+    return cleaned.split('/')[0].trim();
+}
+
+function loadCachedStats(username: string): LeetCodeFullStats | null {
+    if (typeof window === 'undefined') return null;
+    try {
+        const raw = localStorage.getItem(`${LEETCODE_CACHE_PREFIX}${username.toLowerCase()}`);
+        if (!raw) return null;
+        return JSON.parse(raw) as LeetCodeFullStats;
+    } catch {
+        return null;
+    }
+}
+
+function saveCachedStats(username: string, stats: LeetCodeFullStats) {
+    if (typeof window === 'undefined') return;
+    try {
+        localStorage.setItem(`${LEETCODE_CACHE_PREFIX}${username.toLowerCase()}`, JSON.stringify(stats));
+    } catch {
+        // Ignore cache write failures.
+    }
+}
 
 export const leetcodeApi = {
+    normalizeUsername(input: string): string {
+        return normalizeLeetCodeUsername(input);
+    },
+
+    getStoredUsername(): string | null {
+        if (typeof window === 'undefined') return null;
+        const raw = localStorage.getItem(LEETCODE_USERNAME_STORAGE_KEY);
+        if (!raw) return null;
+        const normalized = normalizeLeetCodeUsername(raw);
+        return normalized || null;
+    },
+
+    setStoredUsername(username: string) {
+        if (typeof window === 'undefined') return;
+        const normalized = normalizeLeetCodeUsername(username);
+        if (!normalized) return;
+        localStorage.setItem(LEETCODE_USERNAME_STORAGE_KEY, normalized);
+    },
+
+    clearStoredUsername() {
+        if (typeof window === 'undefined') return;
+        localStorage.removeItem(LEETCODE_USERNAME_STORAGE_KEY);
+    },
+
     async getStats(username: string): Promise<LeetCodeFullStats> {
+        const normalizedUsername = normalizeLeetCodeUsername(username);
+        if (!normalizedUsername) {
+            throw new Error('Please enter a valid LeetCode username.');
+        }
+
         try {
-            // Fetch user profile stats
-            const profileResponse = await axios.get(`${LEETCODE_API}/userProfile/${username}`, {
+            const response = await axios.get(`/api/leetcode/${encodeURIComponent(normalizedUsername)}`, {
                 timeout: 15000,
             });
 
-            const data = profileResponse.data;
+            const result = response.data as LeetCodeFullStats;
 
-            // Check if user exists
-            if (data.errors || !data.totalSolved) {
-                throw new Error('User not found');
-            }
+            this.setStoredUsername(normalizedUsername);
+            saveCachedStats(normalizedUsername, result);
+            return result;
 
-            // Try to get contest info
-            let contestInfo: LeetCodeContestInfo | null = null;
-            try {
-                const contestResponse = await axios.get(`${LEETCODE_API}/userContestRankingInfo/${username}`, {
-                    timeout: 10000,
-                });
-                const contestData = contestResponse.data?.data?.userContestRanking;
-                if (contestData && contestData.rating) {
-                    contestInfo = {
-                        attendedContestsCount: contestData.attendedContestsCount || 0,
-                        rating: Math.round(contestData.rating) || 0,
-                        globalRanking: contestData.globalRanking || 0,
-                        topPercentage: contestData.topPercentage || 0,
-                    };
-                }
-            } catch {
-                // Contest info not available, that's okay
-            }
-
-            return {
-                profile: {
-                    username,
-                    ranking: data.ranking || 0,
-                    totalSolved: data.totalSolved || 0,
-                    totalQuestions: data.totalQuestions || 3846,
-                    easySolved: data.easySolved || 0,
-                    totalEasy: data.totalEasy || 927,
-                    mediumSolved: data.mediumSolved || 0,
-                    totalMedium: data.totalMedium || 2010,
-                    hardSolved: data.hardSolved || 0,
-                    totalHard: data.totalHard || 909,
-                    acceptanceRate: data.totalSolved && data.totalSubmissions ? 
-                        Math.round((data.totalSolved / data.totalSubmissions[0]?.submissions || 1) * 100 * 10) / 10 : 0,
-                    contributionPoints: data.contributionPoint || 0,
-                    reputation: data.reputation || 0,
-                },
-                contest: contestInfo,
-                streak: 0, // Not easily available
-                badges: 0,
-            };
         } catch (error) {
             console.error('Error fetching LeetCode stats:', error);
-            throw new Error('Failed to fetch LeetCode stats. Please check the username.');
+            const cached = loadCachedStats(normalizedUsername);
+            if (cached) {
+                return cached;
+            }
+            throw new Error('Failed to fetch LeetCode stats. Check the username or try again in a moment.');
         }
     },
 
     async validateUsername(username: string): Promise<boolean> {
+        const normalizedUsername = normalizeLeetCodeUsername(username);
+        if (!normalizedUsername) return false;
+
         try {
-            const response = await axios.get(`${LEETCODE_API}/${username}`, {
+            const response = await axios.get(`/api/leetcode/${encodeURIComponent(normalizedUsername)}`, {
                 timeout: 10000,
             });
-            return !!response.data?.username;
+            return !!response.data?.profile?.username;
         } catch {
             return false;
         }

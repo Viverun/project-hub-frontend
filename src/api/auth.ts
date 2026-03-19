@@ -3,9 +3,12 @@ import { AuthResponse, APIResponse } from '@/types';
 
 type BackendUser = {
     id: string;
+    unique_id?: string;
+    name?: string;
     username?: string;
     email: string;
     first_name?: string;
+    last_name?: string;
     profile_picture_url?: string;
     bio?: string;
     github_username?: string;
@@ -17,6 +20,30 @@ type BackendUser = {
     projectsCount?: number;
     created_at?: string;
 };
+
+function isEmailLike(value?: string): boolean {
+    if (!value) return false;
+    return value.includes('@');
+}
+
+function normalizeDisplayName(user: BackendUser): string {
+    const first = (user.first_name || '').trim();
+    const last = (user.last_name || '').trim();
+    const fullName = [first, last].filter(Boolean).join(' ').trim();
+
+    const candidates = [
+        fullName,
+        (user.name || '').trim(),
+        first,
+        (user.username || '').trim(),
+    ].filter(Boolean);
+
+    const best = candidates.find((candidate) => !isEmailLike(candidate));
+    if (best) return best;
+
+    const fallbackFromEmail = (user.email || '').split('@')[0]?.trim();
+    return fallbackFromEmail || 'User';
+}
 
 function resolveRole(user: BackendUser): 'STUDENT' | 'DEPARTMENT' {
     if (user.role === 'DEPARTMENT') return 'DEPARTMENT';
@@ -36,10 +63,12 @@ function resolveRole(user: BackendUser): 'STUDENT' | 'DEPARTMENT' {
 
 function mapUser(user: BackendUser) {
     const normalizedRole = resolveRole(user);
+    const fallbackUniqueId = user.id ? `PH-${String(user.id).split('-')[0].toUpperCase()}` : undefined;
 
     return {
         id: user.id,
-        name: user.first_name || user.username || user.email?.split('@')[0] || 'User',
+        uniqueId: user.unique_id || fallbackUniqueId,
+        name: normalizeDisplayName(user),
         email: user.email,
         role: normalizedRole,
         avatarUrl: user.profile_picture_url,
