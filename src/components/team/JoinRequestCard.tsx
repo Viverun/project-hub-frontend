@@ -12,17 +12,26 @@ interface JoinRequestCardProps {
     request: JoinRequest;
     onAccept?: (requestId: string) => void;
     onReject?: (requestId: string) => void;
+    disabled?: boolean;
 }
 
-export function JoinRequestCard({ request, onAccept, onReject }: JoinRequestCardProps) {
+export function JoinRequestCard({ request, onAccept, onReject, disabled = false }: JoinRequestCardProps) {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleAction = async (status: 'ACCEPTED' | 'REJECTED') => {
         setIsLoading(true);
         try {
+            if (status === 'ACCEPTED' && onAccept) {
+                onAccept(request.id);
+                return;
+            }
+
+            if (status === 'REJECTED' && onReject) {
+                onReject(request.id);
+                return;
+            }
+
             await teamApi.updateRequestStatus(request.id, status);
-            if (status === 'ACCEPTED' && onAccept) onAccept(request.id);
-            if (status === 'REJECTED' && onReject) onReject(request.id);
         } catch (error) {
             console.error(`Failed to ${status.toLowerCase()} request:`, error);
         } finally {
@@ -66,6 +75,7 @@ export function JoinRequestCard({ request, onAccept, onReject }: JoinRequestCard
                     className="flex-1 gap-2"
                     onClick={() => handleAction('ACCEPTED')}
                     isLoading={isLoading}
+                    disabled={disabled || isLoading}
                 >
                     <Check className="h-4 w-4" />
                     Accept
@@ -76,6 +86,7 @@ export function JoinRequestCard({ request, onAccept, onReject }: JoinRequestCard
                     className="flex-1 gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
                     onClick={() => handleAction('REJECTED')}
                     isLoading={isLoading}
+                    disabled={disabled || isLoading}
                 >
                     <X className="h-4 w-4" />
                     Decline

@@ -14,6 +14,7 @@ interface ProjectCardProps {
     onBookmark?: (id: string) => void;
     onRequestToJoin?: (id: string) => void;
     disableRequestButton?: boolean;
+    requestButtonLabel?: string;
     onMarkActive?: (id: string) => Promise<void> | void;
     isMarkActiveLoading?: boolean;
     onToggleActive?: (project: Project) => Promise<void> | void;
@@ -25,6 +26,7 @@ export function ProjectCard({
     onBookmark,
     onRequestToJoin,
     disableRequestButton,
+    requestButtonLabel,
     onMarkActive,
     isMarkActiveLoading,
     onToggleActive,
@@ -137,7 +139,7 @@ export function ProjectCard({
                                 disabled={disableRequestButton}
                                 className="mt-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                Request to Work
+                                {requestButtonLabel || 'Request to Work'}
                             </button>
                         )}
                     </div>

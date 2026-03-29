@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { eventApi } from '@/api/event';
 import { Event } from '@/types';
@@ -160,6 +160,24 @@ export default function EventsPage() {
             ? eventsData.items
             : [];
 
+    const upcomingCount = useMemo(() => {
+        const now = new Date();
+        return events.filter((event) => {
+            const eventDate = event.date ? new Date(event.date) : null;
+            return eventDate ? eventDate >= now : false;
+        }).length;
+    }, [events]);
+
+    const workshopCount = useMemo(
+        () => events.filter((event) => event.type === 'WORKSHOP').length,
+        [events]
+    );
+
+    const hackathonCount = useMemo(
+        () => events.filter((event) => event.type === 'HACKATHON').length,
+        [events]
+    );
+
     // Simple filtering logic
     const filteredEvents = events.filter((event) => {
         const eventDate = event.date ? new Date(event.date) : null;
@@ -177,14 +195,29 @@ export default function EventsPage() {
             <Breadcrumbs items={[{ label: 'Events' }]} />
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Events</h1>
-                    <p className="text-slate-500">Discover hackathons, workshops, and meetups.</p>
+                    <h1 className="text-3xl font-bold text-slate-900">Campus Events</h1>
+                    <p className="text-slate-500">Discover hackathons, workshops, and orientation sessions.</p>
                 </div>
                 {profile?.role === 'DEPARTMENT' && (
                     <Button onClick={() => setShowHostForm((prev) => !prev)}>
                         {showHostForm ? 'Cancel Hosting' : 'Host Event'}
                     </Button>
                 )}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">Upcoming</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{upcomingCount}</p>
+                </div>
+                <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-blue-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Hackathons</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{hackathonCount}</p>
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Workshops</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{workshopCount}</p>
+                </div>
             </div>
 
             {profile?.role === 'DEPARTMENT' && showHostForm && (
@@ -256,7 +289,7 @@ export default function EventsPage() {
                     <Search className="h-4 w-4 text-slate-400" />
                     <input
                         type="text"
-                        placeholder="Search events..."
+                        placeholder="Search by event title or description..."
                         className="flex-1 bg-transparent text-sm outline-none"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}

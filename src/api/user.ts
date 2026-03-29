@@ -49,14 +49,6 @@ function normalizeDisplayName(user: BackendUser): string {
 function resolveRole(user: BackendUser): 'STUDENT' | 'DEPARTMENT' {
     if (user.role === 'DEPARTMENT') return 'DEPARTMENT';
 
-    const storedRole =
-        typeof window !== 'undefined'
-            ? localStorage.getItem('userRole')
-            : null;
-    if (storedRole === 'DEPARTMENT' || storedRole === 'STUDENT') {
-        return storedRole;
-    }
-
     const localPart = (user.email || '').split('@')[0] || '';
     const isLikelyStudent = /^\d+$/.test(localPart);
     return isLikelyStudent ? 'STUDENT' : 'DEPARTMENT';
@@ -152,6 +144,23 @@ export const userApi = {
         return {
             ...response.data,
             data: mapUser(response.data?.data || {}),
+        };
+    },
+    searchUsers: async (query = '', limit = 50): Promise<APIResponse<User[]>> => {
+        const response = await api.get('/user/search', {
+            params: {
+                q: query,
+                limit,
+            },
+        });
+
+        const items = Array.isArray(response.data?.data)
+            ? (response.data.data as BackendUser[]).map(mapUser)
+            : [];
+
+        return {
+            ...response.data,
+            data: items,
         };
     },
 };

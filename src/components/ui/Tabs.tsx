@@ -8,11 +8,16 @@ interface TabsProps extends React.HTMLAttributes<HTMLDivElement> {
     onValueChange?: (value: string) => void;
 }
 
+type TabsInjectedProps = {
+    activeValue?: string;
+    onValueChange?: (value: string) => void;
+};
+
 export function Tabs({ defaultValue, onValueChange, className, children, ...props }: TabsProps) {
-    const [value, setValue] = React.useState(defaultValue);
+    const [activeValue, setActiveValue] = React.useState(defaultValue);
 
     const handleValueChange = (newValue: string) => {
-        setValue(newValue);
+        setActiveValue(newValue);
         onValueChange?.(newValue);
     };
 
@@ -20,8 +25,8 @@ export function Tabs({ defaultValue, onValueChange, className, children, ...prop
         <div className={cn("space-y-2", className)} {...props}>
             {React.Children.map(children, (child) => {
                 if (React.isValidElement(child)) {
-                    return React.cloneElement(child as React.ReactElement<{ value: string; onValueChange: (v: string) => void }>, {
-                        value,
+                    return React.cloneElement(child as React.ReactElement<TabsInjectedProps>, {
+                        activeValue,
                         onValueChange: handleValueChange
                     });
                 }
@@ -31,7 +36,9 @@ export function Tabs({ defaultValue, onValueChange, className, children, ...prop
     );
 }
 
-export function TabsList({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+type TabsListProps = React.HTMLAttributes<HTMLDivElement> & TabsInjectedProps;
+
+export function TabsList({ className, children, activeValue, onValueChange, ...props }: TabsListProps) {
     return (
         <div
             className={cn(
@@ -40,25 +47,35 @@ export function TabsList({ className, children, ...props }: React.HTMLAttributes
             )}
             {...props}
         >
-            {children}
+            {React.Children.map(children, (child) => {
+                if (React.isValidElement(child)) {
+                    return React.cloneElement(child as React.ReactElement<TabsTriggerProps>, {
+                        activeValue,
+                        onValueChange,
+                    });
+                }
+                return child;
+            })}
         </div>
     );
 }
 
 interface TabsTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     value: string;
+    activeValue?: string;
+    onValueChange?: (value: string) => void;
 }
 
-export function TabsTrigger({ value, className, children, ...props }: TabsTriggerProps) {
-    // These props are injected by Tabs
-    const { value: activeValue, onValueChange } = props as unknown as { value: string; onValueChange: (v: string) => void };
+export function TabsTrigger({ value, className, children, activeValue, onValueChange, ...props }: TabsTriggerProps) {
+    const isActive = activeValue === value;
 
     return (
         <button
-            onClick={() => onValueChange(value)}
+            onClick={() => onValueChange?.(value)}
+            data-state={isActive ? 'active' : 'inactive'}
             className={cn(
                 "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-                activeValue === value
+                isActive
                     ? "bg-white text-slate-950 shadow-sm"
                     : "hover:bg-slate-50 hover:text-slate-900",
                 className
@@ -70,8 +87,13 @@ export function TabsTrigger({ value, className, children, ...props }: TabsTrigge
     );
 }
 
-export function TabsContent({ value, className, children, ...props }: { value: string; className?: string; children: React.ReactNode }) {
-    const { value: activeValue } = props as unknown as { value: string };
+type TabsContentProps = {
+    value: string;
+    className?: string;
+    children: React.ReactNode;
+} & TabsInjectedProps;
+
+export function TabsContent({ value, className, children, activeValue, onValueChange, ...props }: TabsContentProps) {
 
     if (activeValue !== value) return null;
 

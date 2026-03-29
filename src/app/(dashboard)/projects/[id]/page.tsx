@@ -1,8 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import Image from 'next/image';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectApi } from '@/api/project';
 import { teamApi } from '@/api/team';
 import { TeamMember } from '@/types';
@@ -22,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDate } from '@/lib/utils';
+import { useMemo, useState } from 'react';
 
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 
@@ -29,7 +29,9 @@ export default function ProjectDetailPage() {
     const params = useParams();
     const router = useRouter();
     const { user } = useAuth();
+    const queryClient = useQueryClient();
     const id = params.id as string;
+    const [respondingRequestId, setRespondingRequestId] = useState<string | null>(null);
 
     const { data: projectRes, isLoading: isProjectLoading } = useQuery({
         queryKey: ['project', id],
@@ -44,6 +46,34 @@ export default function ProjectDetailPage() {
     const project = projectRes?.data;
     const team = teamRes?.data;
     const isOwner = user?.id === project?.ownerId;
+
+    const { data: joinRequestsRes, isLoading: isJoinRequestsLoading } = useQuery({
+        queryKey: ['project-join-requests', id],
+        queryFn: () => projectApi.getJoinRequests(),
+        enabled: Boolean(isOwner),
+    });
+
+    const respondJoinRequestMutation = useMutation({
+        mutationFn: ({ requestId, action }: { requestId: string; action: 'ACCEPT' | 'REJECT' }) =>
+            projectApi.respondToJoinRequest(requestId, action),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['project-join-requests', id] });
+        },
+        onSettled: () => {
+            setRespondingRequestId(null);
+        },
+    });
+
+    const pendingJoinRequests = useMemo(() => {
+        const items = joinRequestsRes?.data?.items || [];
+        return items.filter((item) => item.project_id === id && item.status === 'PENDING');
+    }, [id, joinRequestsRes?.data?.items]);
+
+    const handleRespondJoinRequest = (requestId: string, action: 'ACCEPT' | 'REJECT') => {
+        if (respondingRequestId) return;
+        setRespondingRequestId(requestId);
+        respondJoinRequestMutation.mutate({ requestId, action });
+    };
 
     if (isProjectLoading) {
         return (
@@ -70,32 +100,6 @@ export default function ProjectDetailPage() {
                     { label: project.title }
                 ]}
             />
-
-            {/* Image Gallery */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 h-[400px]">
-                <div className="md:col-span-3 rounded-2xl overflow-hidden bg-slate-100 relative group">
-                    {project.thumbnailUrl ? (
-                        <Image src={project.thumbnailUrl} alt={project.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
-                    ) : (
-                        <div className="flex h-full w-full items-center justify-center text-slate-300">
-                            <Trophy className="h-20 w-20 opacity-20" />
-                        </div>
-                    )}
-                </div>
-                <div className="hidden md:flex flex-col gap-4">
-                    {[1, 2].map((i) => (
-                        <div key={i} className="flex-1 rounded-2xl bg-slate-100 overflow-hidden relative group">
-                            {project.images?.[i] ? (
-                                <Image src={project.images[i]} alt={`${project.title} ${i}`} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                            ) : (
-                                <div className="flex h-full w-full items-center justify-center text-slate-200">
-                                    <Calendar className="h-8 w-8 opacity-30" />
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
 
             <div className="grid gap-8 lg:grid-cols-3">
                 <div className="lg:col-span-2 space-y-8">
@@ -140,7 +144,7 @@ export default function ProjectDetailPage() {
                                 value="team"
                                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 bg-transparent shadow-none px-0 py-2"
                             >
-                                Team ({team?.members.length || 0})
+                                People ({team?.members.length || 0})
                             </TabsTrigger>
                             <TabsTrigger
                                 value="showcase"
@@ -161,63 +165,46 @@ export default function ProjectDetailPage() {
                                 <div className="space-y-4 pt-6">
                                     <h4 className="font-semibold text-slate-900 flex items-center gap-2">
                                         Pending Requests
-                                        <Badge variant="secondary" className="rounded-full h-5 w-5 flex items-center justify-center p-0">3</Badge>
+                                        <Badge variant="secondary" className="rounded-full h-5 w-5 flex items-center justify-center p-0">
+                                            {pendingJoinRequests.length}
+                                        </Badge>
                                     </h4>
-                                    <div className="grid gap-4 sm:grid-cols-2">
-                                        {/* Mocking join requests for demonstration */}
-                                        <JoinRequestCard
-                                            request={{
-                                                id: '1',
-                                                projectId: id,
-                                                userId: 'user-2',
-                                                role: 'Frontend Developer',
-                                                message: "I'd love to help with the UI/UX design and React implementation!",
-                                                status: 'PENDING',
-                                                createdAt: new Date().toISOString(),
-                                                user: {
-                                                    id: 'user-2',
-                                                    name: 'Sarah Chen',
-                                                    email: 'sarah@example.com',
-                                                    role: 'STUDENT',
-                                                    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
-                                                    location: 'Toronto, Canada',
-                                                    skills: ['React', 'TypeScript', 'Tailwind'],
-                                                    followersCount: 120,
-                                                    followingCount: 85,
-                                                    projectsCount: 12,
-                                                    createdAt: new Date().toISOString()
-                                                }
-                                            }}
-                                            onAccept={(requestId: string) => console.log('Accept', requestId)}
-                                            onReject={(requestId: string) => console.log('Reject', requestId)}
-                                        />
-                                        <JoinRequestCard
-                                            request={{
-                                                id: '2',
-                                                projectId: id,
-                                                userId: 'user-3',
-                                                role: 'Backend Developer',
-                                                message: 'Experienced with Node.js and PostgreSQL. Ready to build robust APIs.',
-                                                status: 'PENDING',
-                                                createdAt: new Date(Date.now() - 86400000).toISOString(),
-                                                user: {
-                                                    id: 'user-3',
-                                                    name: 'Alex Rivera',
-                                                    email: 'alex@example.com',
-                                                    role: 'STUDENT',
-                                                    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop',
-                                                    location: 'San Francisco, USA',
-                                                    skills: ['Node.js', 'PostgreSQL', 'Docker'],
-                                                    followersCount: 450,
-                                                    followingCount: 320,
-                                                    projectsCount: 28,
-                                                    createdAt: new Date().toISOString()
-                                                }
-                                            }}
-                                            onAccept={(requestId: string) => console.log('Accept', requestId)}
-                                            onReject={(requestId: string) => console.log('Reject', requestId)}
-                                        />
-                                    </div>
+                                    {isJoinRequestsLoading ? (
+                                        <div className="flex h-24 items-center justify-center rounded-xl border border-slate-100 bg-slate-50/50">
+                                            <Spinner size="sm" />
+                                        </div>
+                                    ) : pendingJoinRequests.length === 0 ? (
+                                        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/40 p-4 text-sm text-slate-500">
+                                            No pending requests for this project yet.
+                                        </div>
+                                    ) : (
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                            {pendingJoinRequests.map((request) => (
+                                                <JoinRequestCard
+                                                    key={request.id}
+                                                    request={{
+                                                        id: request.id,
+                                                        projectId: request.project_id,
+                                                        userId: request.requester_id,
+                                                        role: 'Contributor',
+                                                        message: request.message || 'Interested to contribute to this project.',
+                                                        status: request.status,
+                                                        createdAt: request.created_at,
+                                                        user: {
+                                                            id: request.requester_id,
+                                                            name: request.requester_name,
+                                                            email: request.requester_email,
+                                                            role: 'STUDENT',
+                                                            createdAt: request.created_at,
+                                                        },
+                                                    }}
+                                                    onAccept={(requestId: string) => handleRespondJoinRequest(requestId, 'ACCEPT')}
+                                                    onReject={(requestId: string) => handleRespondJoinRequest(requestId, 'REJECT')}
+                                                    disabled={respondingRequestId === request.id}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </TabsContent>

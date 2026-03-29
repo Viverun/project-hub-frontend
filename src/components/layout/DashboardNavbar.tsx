@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { Home, LogOut } from 'lucide-react';
-import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,7 +18,6 @@ export function DashboardNavbar() {
             </div>
 
             <div className="flex items-center gap-4">
-                <NotificationBell />
                 <Link href="/">
                     <Button variant="ghost" size="sm" className="gap-2">
                         <Home className="h-4 w-4" />

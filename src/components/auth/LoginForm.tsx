@@ -150,9 +150,6 @@ export function LoginForm() {
                         <motion.div variants={itemVariants} className="space-y-1">
                             <div className="flex items-center justify-between">
                                 <label className="text-sm font-medium leading-none text-slate-700">Password</label>
-                                <Link href="/forgot-password" className="text-sm font-medium text-indigo-600 hover:text-indigo-500 transition-colors">
-                                    Forgot password?
-                                </Link>
                             </div>
                             <Input
                                 type="password"

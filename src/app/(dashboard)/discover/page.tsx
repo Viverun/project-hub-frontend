@@ -49,6 +49,11 @@ function normalizeLeetCodeUsername(rawValue?: string): string {
     return cleaned.split('/')[0].trim();
 }
 
+function isStudentProfile(user: User): boolean {
+    if (user.role === 'DEPARTMENT') return false;
+    return /^\d+@apsit\.edu\.in$/i.test((user.email || '').trim());
+}
+
 export default function DiscoverPage() {
     const { profile } = useUser();
     const [isLoading, setIsLoading] = useState(true);
@@ -137,8 +142,43 @@ export default function DiscoverPage() {
                     })
                 );
 
+                const discoveredUsersResponse = await userApi.searchUsers('', 100);
+                const discoveredUsers = Array.isArray(discoveredUsersResponse.data)
+                    ? discoveredUsersResponse.data
+                    : [];
+
+                const mergedProfiles = new Map<string, DiscoverProfile>();
+
+                profileResults
+                    .filter((result): result is DiscoverProfile => Boolean(result))
+                    .forEach((result) => {
+                        mergedProfiles.set(result.user.id, result);
+                    });
+
+                discoveredUsers.forEach((user) => {
+                    const existing = mergedProfiles.get(user.id);
+                    if (existing) {
+                        return;
+                    }
+
+                    const fallbackStats = ownerStats.get(user.id) || {
+                        projectCount: 0,
+                        topTeamSize: 0,
+                        latestActivityTs: 0,
+                    };
+
+                    mergedProfiles.set(user.id, {
+                        user,
+                        projectCount: fallbackStats.projectCount,
+                        topTeamSize: fallbackStats.topTeamSize,
+                        latestActivityTs: fallbackStats.latestActivityTs,
+                    });
+                });
+
                 if (!cancelled) {
-                    setProfiles(profileResults.filter((result): result is DiscoverProfile => Boolean(result)));
+                    setProfiles(
+                        Array.from(mergedProfiles.values()).filter((item) => isStudentProfile(item.user))
+                    );
                 }
             } catch {
                 if (!cancelled) {

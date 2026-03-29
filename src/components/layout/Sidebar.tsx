@@ -10,7 +10,6 @@ import {
     Search,
     Users,
     Calendar,
-    Bell,
     User,
     Settings,
     Rocket,
@@ -26,7 +25,6 @@ const baseNavigation = [
     { name: 'Events', href: '/events', icon: Calendar },
     { name: 'Manage Events', href: '/manage-events', icon: Calendar, role: 'DEPARTMENT' },
     { name: 'Create Hackathon', href: '/create-hackathon', icon: Trophy, role: 'DEPARTMENT' },
-    { name: 'Notifications', href: '/notifications', icon: Bell },
     { name: 'Profile', href: '/profile', icon: User },
 ];
 
